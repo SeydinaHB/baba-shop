@@ -1,7 +1,7 @@
 // ===== A MODIFIER : ta boutique =====
 const CONFIG = {
   nom: "BABA SHOP",
-  whatsapp: "221773189329", // ton numero, format international, sans + ni espaces
+  whatsapp: "221788710815", // ton numero, format international, sans + ni espaces
   devise: "FCFA",
   adresse: "Dakar, Senegal",
   horaires: "Tous les jours, 9h - 20h"
