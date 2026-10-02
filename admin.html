@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Administration - Baba Shop</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f4f6f8; color: #1f2937; }
+    main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    h2 { font-size: 1.15rem; margin: 32px 0 12px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }
+    label { display: block; font-weight: 600; font-size: 0.9rem; margin: 14px 0 6px; }
+    input, select { width: 100%; padding: 12px; font-size: 1rem; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+    button { cursor: pointer; border: 0; border-radius: 8px; padding: 12px 18px; font-size: 1rem; font-weight: 600; }
+    .primary { background: #111827; color: #fff; width: 100%; margin-top: 20px; }
+    .primary:disabled { opacity: 0.6; cursor: wait; }
+    .ghost { background: #e5e7eb; color: #111827; }
+    .danger { background: #fee2e2; color: #991b1b; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .item { display: flex; gap: 14px; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .item img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex: none; background: #e5e7eb; }
+    .info { flex: 1; min-width: 0; }
+    .name { font-weight: 600; overflow-wrap: anywhere; }
+    .meta { color: #6b7280; font-size: 0.9rem; }
+    .actions { display: flex; flex-direction: column; gap: 6px; }
+    .actions button { padding: 8px 12px; font-size: 0.85rem; }
+    #message { display: none; margin-top: 16px; padding: 12px; border-radius: 8px; }
+    #message.ok { display: block; background: #dcfce7; color: #166534; }
+    #message.err { display: block; background: #fee2e2; color: #991b1b; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="login-view" hidden>
+      <h1>Administration</h1>
+      <p>Connectez-vous pour gérer les produits de la boutique.</p>
+      <form id="login-form" class="card">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" required>
+        <label for="password">Mot de passe</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button class="primary" type="submit">Se connecter</button>
+      </form>
+    </section>
+
+    <section id="admin-view" hidden>
+      <div class="topbar">
+        <h1>Baba Shop - Administration</h1>
+        <button id="logout" class="ghost" type="button">Déconnexion</button>
+      </div>
+
+      <h2>Ajouter un produit</h2>
+      <form id="product-form" class="card">
+        <label for="name">Nom du produit</label>
+        <input id="name" type="text" required>
+
+        <label for="category">Catégorie</label>
+        <select id="category"></select>
+
+        <div id="subcategory-block" hidden>
+          <label for="subcategory">Type de chaussures</label>
+          <select id="subcategory"></select>
+        </div>
+
+        <label for="price">Prix (FCFA)</label>
+        <input id="price" type="number" min="0" inputmode="numeric" required>
+
+        <label for="image">Photo</label>
+        <input id="image" type="file" accept="image/*" required>
+
+        <button id="submit" class="primary" type="submit">Ajouter le produit</button>
+      </form>
+
+      <h2>Produits en ligne</h2>
+      <div id="list"></div>
+    </section>
+
+    <div id="message" role="status"></div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const { url, key } = window.BABA_CONFIG;
+    const BUCKET = 'product-images';
+    const CATEGORIES = ['Ensembles 3 pièces', 'Ensembles 2 pièces', 'Tee-shirts', 'Chaussures'];
+    const SHOE_TYPES = ['Baskets', 'Chaussures soignées', 'Sandales'];
+    const db = supabase.createClient(url, key);
+    let products = [];
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const formatPrice = (n) => Number(n).toLocaleString('fr-FR') + ' FCFA';
+
+    function say(text, type) {
+      const box = $('message');
+      box.textContent = text;
+      box.className = type;
+      if (type === 'ok') setTimeout(() => { box.className = ''; }, 3500);
+    }
+
+    $('category').innerHTML = CATEGORIES.map((c) => `<option value="${c}">${c}</option>`).join('');
+    $('subcategory').innerHTML = SHOE_TYPES.map((s) => `<option value="${s}">${s}</option>`).join('');
+    $('category').addEventListener('change', () => {
+      $('subcategory-block').hidden = $('category').value !== 'Chaussures';
+    });
+
+    async function refresh() {
+      const { data } = await db.auth.getSession();
+      const logged = !!data.session;
+      $('login-view').hidden = logged;
+      $('admin-view').hidden = !logged;
+      if (logged) loadProducts();
+    }
+
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { error } = await db.auth.signInWithPassword({
+        email: $('email').value.trim(),
+        password: $('password').value
+      });
+      if (error) return say('Email ou mot de passe incorrect.', 'err');
+      $('password').value = '';
+      say('', '');
+      refresh();
+    });
+
+    $('logout').addEventListener('click', async () => {
+      await db.auth.signOut();
+      refresh();
+    });
+
+    async function loadProducts() {
+      const { data, error } = await db.from('products').select('*').order('created_at', { ascending: false });
+      if (error) return say('Impossible de charger les produits.', 'err');
+      products = data;
+      const list = $('list');
+      if (!data.length) {
+        list.innerHTML = '<p>Aucun produit pour le moment.</p>';
+        return;
+      }
+      list.innerHTML = data.map((p) => `
+        <div class="item">
+          <img src="${esc(p.image_url)}" alt="">
+          <div class="info">
+            <div class="name">${esc(p.name)}</div>
+            <div class="meta">${esc(p.category)}${p.subcategory ? ' - ' + esc(p.subcategory) : ''}</div>
+            <div class="meta">${formatPrice(p.price)}</div>
+          </div>
+          <div class="actions">
+            <button class="ghost" data-edit="${p.id}">Modifier</button>
+            <button class="danger" data-delete="${p.id}">Supprimer</button>
+          </div>
+        </div>`).join('');
+    }
+
+    $('list').addEventListener('click', (e) => {
+      if (e.target.dataset.edit) editProduct(Number(e.target.dataset.edit));
+      if (e.target.dataset.delete) deleteProduct(Number(e.target.dataset.delete));
+    });
+
+    async function editProduct(id) {
+      const p = products.find((x) => x.id === id);
+      if (!p) return;
+      const name = prompt('Nom du produit :', p.name);
+      if (name === null) return;
+      const priceText = prompt('Prix (FCFA) :', p.price);
+      if (priceText === null) return;
+      const price = parseInt(priceText, 10);
+      if (!name.trim() || isNaN(price) || price < 0) return say('Nom ou prix invalide.', 'err');
+      const { error } = await db.from('products').update({ name: name.trim(), price }).eq('id', id);
+      if (error) return say('La modification a échoué.', 'err');
+      say('Produit modifié.', 'ok');
+      loadProducts();
+    }
+
+    async function deleteProduct(id) {
+      const p = products.find((x) => x.id === id);
+      if (!p || !confirm('Supprimer "' + p.name + '" ?')) return;
+      const { error } = await db.from('products').delete().eq('id', id);
+      if (error) return say('La suppression a échoué.', 'err');
+      const marker = '/' + BUCKET + '/';
+      const i = p.image_url.indexOf(marker);
+      if (i !== -1) {
+        await db.storage.from(BUCKET).remove([decodeURIComponent(p.image_url.slice(i + marker.length))]);
+      }
+      say('Produit supprimé.', 'ok');
+      loadProducts();
+    }
+
+    async function resizeImage(file, maxSize = 1200) {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      } catch {
+        return file;
+      }
+    }
+
+    $('product-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = $('name').value.trim();
+      const category = $('category').value;
+      const subcategory = category === 'Chaussures' ? $('subcategory').value : null;
+      const price = parseInt($('price').value, 10);
+      const file = $('image').files[0];
+      if (!name || isNaN(price) || price < 0 || !file) {
+        return say('Remplissez le nom, le prix et choisissez une photo.', 'err');
+      }
+
+      const btn = $('submit');
+      btn.disabled = true;
+      btn.textContent = 'Envoi en cours...';
+      let path = null;
+      try {
+        const blob = await resizeImage(file);
+        const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+        path = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+        const up = await db.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || 'image/jpeg' });
+        if (up.error) throw up.error;
+        const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+        const ins = await db.from('products').insert({ name, category, subcategory, price, image_url: data.publicUrl });
+        if (ins.error) throw ins.error;
+        e.target.reset();
+        $('subcategory-block').hidden = true;
+        say('Produit ajouté.', 'ok');
+        loadProducts();
+      } catch (err) {
+        if (path) await db.storage.from(BUCKET).remove([path]);
+        say('Erreur : le produit n\'a pas pu être ajouté.', 'err');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ajouter le produit';
+      }
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
