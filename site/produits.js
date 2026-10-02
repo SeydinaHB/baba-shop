@@ -1,10 +1,12 @@
 // ===== A MODIFIER : ta boutique =====
 const CONFIG = {
   nom: "BABA SHOP",
-  whatsapp: "221788710815", // ton numero, format international, sans + ni espaces
+  whatsapp: "221788710815", // numero au format international, sans + ni espaces
   devise: "FCFA",
   adresse: "Dakar, Senegal",
-  horaires: "Tous les jours, 9h - 20h"
+  horaires: "Tous les jours, 9h - 20h",
+  supabaseUrl: "https://uqqeajelxdysqpnxlerg.supabase.co",
+  supabaseKey: "sb_publishable_cnD_UBIwachCXXeBOIftWQ_enQ7c7pu"
 };
 
 // Categorie principale : pas de "parent".
@@ -19,18 +21,6 @@ const CATEGORIES = [
   { id: "sandales", parent: "chaussures", nom: "Sandales", desc: "Légères et pratiques." }
 ];
 
-// Un produit = une ligne. "cat" = l'id de sa categorie (chaussures : baskets, soignees ou sandales).
-// Mets l'image dans le dossier images/
-const PRODUITS = [
-  { cat: "3-pieces", nom: "Ensemble 3 pièces Modèle 1", prix: 70000, image: "images/3p1.jpeg" },
-  { cat: "3-pieces", nom: "Ensemble 3 pièces Modèle 2", prix: 75000, image: "images/3p2.jpeg" },
-  { cat: "3-pieces", nom: "Ensemble 3 pièces Modèle 3", prix: 57000, image: "images/3p3.jpeg" },
-  { cat: "2-pieces", nom: "Ensemble 2 pièces Modèle 1", prix: 25000, image: "images/2p1.jpeg" },
-  { cat: "2-pieces", nom: "Ensemble 2 pièces Modèle 2", prix: 27000, image: "images/2p2.jpeg" },
-  { cat: "tee-shirts", nom: "Tee-shirt Modèle 1", prix: 8000, image: "images/ts1.jpeg" },
-  { cat: "tee-shirts", nom: "Tee-shirt Modèle 2", prix: 9000, image: "images/ts2.jpeg" },
-  { cat: "baskets", nom: "AIR MAX", prix: 18000, image: "images/bk1.jpeg" },
-  { cat: "baskets", nom: "NEW BALANCE", prix: 22000, image: "images/bk2.jpeg" },
-  { cat: "soignees", nom: "Chaussure soignée Modèle 1", prix: 30000, image: "images/so1.jpeg" },
-  { cat: "sandales", nom: "CROCS spiderman", prix: 15000, image: "images/sa1.jpeg" }
-];
+// Les produits ne sont plus ecrits ici : ils sont charges depuis Supabase.
+// Pour les ajouter, modifier ou supprimer, utiliser la page admin.html.
+let PRODUITS = [];
